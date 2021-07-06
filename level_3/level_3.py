@@ -1,53 +1,37 @@
-#!/usr/bin/python3
-from bs4 import BeautifulSoup
 import requests
-import sys
-from PIL import Image
-import urllib
-from operator import itemgetter
-import pytesseract as tess
+try:
+    from PIL import Image
+except ImportError:
+    import Image
+import pytesseract
 
-success_votes = 0
-error_cases = 0
-user_id = 3014
-number_print = 100
-url = "http://158.69.76.135/level3.php"
-header = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)\
-     AppleWebKit/537.36 (KHTML, like Gecko)\
-     Chrome/91.0.4501.0 Safari/537.36 Edg/91.0.866.0',
-    'Referer': url
-}
-cookies_page = requests.session()
-cookies_page.headers.update(header)
+# level 3
 
-for i in range(0, number_print):
-    r = cookies_page.get(url, headers=header)
+def send_votes():
+    url = 'http://158.69.76.135/level3.php'
+    captcha_url = 'http://158.69.76.135/captcha.php'
+    string_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:69.0) Gecko/20100101 Firefox/69.0' 
+    referer_string = 'http://158.69.76.135/level3.php'
+    id = 2500
+    times = 1024
 
-    soup = BeautifulSoup(r.text, "lxml")
-    key_value = soup.find('form').find('input', {'name': 'key'})['value']
+    for i in range(times):
+        with requests.Session() as s: 
+            r = s.get(url, headers={'User-Agent': string_agent, 'referer': referer_string})
+            i = s.get(captcha_url, headers={'User-Agent': string_agent, 'referer': referer_string}) 
+            image_file = open('captcha.png', 'wb') 
+            image_file.write(i.content)
+            image_file.close()
 
-    captcha_url = "http://158.69.76.135/captcha.php"
-    captcha_image = cookies_page.get(captcha_url)
-    file = open("captcha_image.png", "wb")
-    file.write(cookies_page.get(captcha_url, headers=header).content)
-    # file.write(urllib.request.urlopen(captcha_url).read())
-    # file.write(captcha_image.content)
-    file.close()
+            captcha_string = pytesseract.image_to_string(Image.open('captcha.png'))
+            print(captcha_string, type(captcha_string))
+            c = r.cookies
+            key_form = ""
+            for cookie in c:
+                if cookie.name == 'HoldTheDoor':
+                    key_form = cookie.value
+                    break
+            l = s.post(url, data={'id': 867, 'holdthedoor': 'Enviar', 'key': key_form, 'captcha': captcha_string}, headers={'User-Agent': string_agent, 'referer': referer_string}, cookies = c)
 
-    captcha_text = tess.image_to_string("captcha_image.png")[:4]
-    print(".{}.".format(captcha_text))
-    votation = {'id': user_id, 'holdthedoor': 'Submit', 'key': key_value, 'captcha': captcha_text}
-    vote = cookies_page.post(url, data=votation)
+send_votes()
 
-    if vote.status_code == 200:
-        success_votes += 1
-    else:
-        error_cases += 1
-
-print("-------------------")
-print("print success: {}".format(success_votes))
-print("error_cases: {}".format(error_cases), file=sys.stderr)
-print("-------------------")
-if error_cases == 0:
-    print("Success operation: 100% of {} votes".format(success_votes))
